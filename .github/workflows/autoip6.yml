@@ -35,7 +35,6 @@ jobs:
           disable_globbing: true  # 禁用glob扩展
           skip_dirty_check: true  # 允许无变化commit
           skip_fetch: true  # 加速
-          skip_on_no_changes: true  # 跳过无变化,避免错误
       - name: Post Set Python
         run: echo "Post-setup complete"
       - name: Post Check out repository
