@@ -20,7 +20,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install requests
+        pip install requests[socks]  # 加 SOCKS 支持
 
     - name: Run speed test script
       run: python test_speed.py
@@ -33,7 +33,7 @@ jobs:
         if git diff --staged --quiet; then
           echo "No changes to commit"
         else
-          git commit -m "Update IP speed test results [auto] - All successful IPs"
+          git commit -m "Update IP speed test results [auto] - All successful IPs (multi-port)"
           git push
         fi
       env:
