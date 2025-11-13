@@ -1,4 +1,4 @@
-name: IP Speed Test (CF Optimized)
+name: IP Speed Test (CF Bandwidth Optimized)
 
 on:
   schedule:
@@ -35,7 +35,7 @@ jobs:
         if git diff --staged --quiet; then
           echo "No changes to commit"
         else
-          git commit -m "Update IP speed test results [auto] - CF optimized"
+          git commit -m "Update IP speed test results [auto] - 10MB CF bandwidth test"
           git push
         fi
       env:
