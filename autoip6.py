@@ -13,21 +13,18 @@ from selenium.webdriver.chrome.options import Options
 
 # 目标URL列表
 urls = [
-    'https://ip.164746.xyz',
-    #'https://api.uouin.com/cloudflare.html',
-    #'https://ipdb.api.030101.xyz/?type=bestcf&country=true',
-    #'https://addressesapi.090227.xyz/CloudFlareYes',
     'https://raw.githubusercontent.com/ymyuuu/IPDB/main/BestCF/bestcfv4.txt',
-    #'https://www.wetest.vip/page/cloudflare/address_v6.html',
-    #'https://www.wetest.vip/page/cloudflare/address_v4.html',
-    #'https://cf.090227.xyz',
-    'https://stock.hostmonit.com/CloudFlareYes',
     'https://raw.githubusercontent.com/rong2er/Senflare-IP/refs/heads/main/Ranking.txt',
     'https://raw.githubusercontent.com/gslege/CloudflareIP/refs/heads/main/SG.txt',
     'https://raw.githubusercontent.com/gslege/CloudflareIP/refs/heads/main/JP.txt',
     'https://raw.githubusercontent.com/gslege/CloudflareIP/refs/heads/main/DE.txt',
     'https://raw.githubusercontent.com/gslege/CloudflareIP/refs/heads/main/NL.txt'
-    
+    #'https://www.wetest.vip/page/cloudflare/address_v6.html',
+    #'https://www.wetest.vip/page/cloudflare/address_v4.html',
+    #'https://cf.090227.xyz',
+    #'https://api.uouin.com/cloudflare.html',
+    #'https://ipdb.api.030101.xyz/?type=bestcf&country=true',
+    #'https://addressesapi.090227.xyz/CloudFlareYes',
 ]
 
 # 正则表达式用于初步匹配IPV4与IPV6地址(配合ipaddress库二次过滤)
