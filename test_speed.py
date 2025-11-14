@@ -58,43 +58,75 @@ EN_TO_CN = {
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
 
 def get_chinese_country(ip, max_retries=1):
-    """查询 IP 国家（新 API：IPinfo 主 + ipgeolocation 备用，只 1 次）"""
+    """查询 IP 国家（新 API：IPinfo 主 + ipgeolocation 备用，只当主无信息时用备用）"""
     headers = {'User-Agent': USER_AGENT}
     for attempt in range(max_retries):
-        try:
-            # 主 API: IPinfo.io (免费 50k/月，高准，无 key)
-            url = f'https://ipinfo.io/{ip}/country'
-            print(f"  查询 {ip} (尝试 {attempt+1}, IPinfo)...")
-            response = requests.get(url, headers=headers, timeout=10)
-            print(f"  Status: {response.status_code}, Text len: {len(response.text)}")
-            print(f"  响应预览: {response.text[:50]}...")  # 调试
-            
-            if response.status_code == 200:
-                en_country = response.text.strip()
-                if en_country:  # 如 "US"
-                    cn_country = EN_TO_CN.get(en_country, en_country)
-                    print(f"  国家: {en_country} -> {cn_country}")
-                    return cn_country
-                else:
-                    print("  IPinfo 空响应")
-            elif response.status_code in [403, 429]:
-                print(f"  {response.status_code} 限速，尝试备用...")
-                # 备用: ipgeolocation.io (免费 30k/月，无 key)
+        # 主 API: IPinfo.io (免费 50k/月，高准，无 key)
+        url = f'https://ipinfo.io/{ip}/country'
+        print(f"  查询 {ip} (尝试 {attempt+1}, 主 API IPinfo)...")
+        response = requests.get(url, headers=headers, timeout=10)
+        print(f"  Status: {response.status_code}, Text len: {len(response.text)}")
+        print(f"  响应预览: {response.text[:50]}...")  # 调试
+        
+        if response.status_code == 200:
+            en_country = response.text.strip()
+            if en_country and en_country != 'Unknown':  # 有有效信息（非空、非Unknown）
+                cn_country = EN_TO_CN.get(en_country, en_country)
+                print(f"  国家: {en_country} -> {cn_country}")
+                return cn_country
+            else:
+                print("  IPinfo 无有效归属地信息，尝试备用 API...")
+                # 只有主无信息时，才调用备用: ipgeolocation.io
                 backup_url = f'https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip={ip}&fields=country_name'  # demo key 免费
                 backup_resp = requests.get(backup_url, headers=headers, timeout=10)
                 if backup_resp.status_code == 200:
                     data = backup_resp.json()
-                    en_country = data.get('country_name', 'Unknown')
-                    cn_country = EN_TO_CN.get(en_country, en_country)
-                    print(f"  备用成功: {en_country} -> {cn_country}")
-                    return cn_country
+                    en_country_backup = data.get('country_name', 'Unknown')
+                    if en_country_backup != 'Unknown':  # 备用也检查有效
+                        cn_country = EN_TO_CN.get(en_country_backup, en_country_backup)
+                        print(f"  备用成功: {en_country_backup} -> {cn_country}")
+                        return cn_country
+                    else:
+                        print("  备用也无有效信息")
                 else:
                     print(f"  备用失败: {backup_resp.status_code}")
+        elif response.status_code in [403, 429]:
+            print(f"  主 API {response.status_code} 限速，无信息，尝试备用...")
+            # 限速也视为无信息，调用备用
+            backup_url = f'https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip={ip}&fields=country_name'
+            backup_resp = requests.get(backup_url, headers=headers, timeout=10)
+            if backup_resp.status_code == 200:
+                data = backup_resp.json()
+                en_country_backup = data.get('country_name', 'Unknown')
+                if en_country_backup != 'Unknown':
+                    cn_country = EN_TO_CN.get(en_country_backup, en_country_backup)
+                    print(f"  备用成功: {en_country_backup} -> {cn_country}")
+                    return cn_country
+                else:
+                    print("  备用也无有效信息")
             else:
-                raise ValueError(f"HTTP {response.status_code}")
+                print(f"  备用失败: {backup_resp.status_code}")
+        else:
+            print(f"  主 API 其他错误 {response.status_code}，无信息，尝试备用...")
+            # 其他错误也调用备用（逻辑同上）
+            # ... (复制备用逻辑)
+            backup_url = f'https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip={ip}&fields=country_name'
+            backup_resp = requests.get(backup_url, headers=headers, timeout=10)
+            if backup_resp.status_code == 200:
+                data = backup_resp.json()
+                en_country_backup = data.get('country_name', 'Unknown')
+                if en_country_backup != 'Unknown':
+                    cn_country = EN_TO_CN.get(en_country_backup, en_country_backup)
+                    print(f"  备用成功: {en_country_backup} -> {cn_country}")
+                    return cn_country
+                else:
+                    print("  备用也无有效信息")
+            else:
+                print(f"  备用失败: {backup_resp.status_code}")
         
         except Exception as e:
             print(f"  异常 (尝试 {attempt+1}): {e}")
+            # 异常也视为无信息，尝试备用（但 max_retries=1，无下轮）
         
         if attempt < max_retries - 1:
             time.sleep(1)  # 短延时
@@ -182,11 +214,13 @@ def main():
             else:
                 failed_count += 1
                 print(f" -> 失败: 连接不通")
-        # 写入 speed_ip.txt (按速度降序)
+        # 按速度降序排序，取前 50 个写入 speed_ip.txt
+        sorted_results = sorted(results, key=lambda x: float(re.search(r'(\d+\.?\d*)MB/s', x).group(1)), reverse=True)
+        top_50 = sorted_results[:50]  # 只取前 50
         with open('speed_ip.txt', 'w', encoding='utf-8') as f:
-            for res in sorted(results, key=lambda x: float(re.search(r'(\d+\.?\d*)MB/s', x).group(1)), reverse=True):
+            for res in top_50:
                 f.write(res + '\n')
-        print(f"\n完成！共 {len(results)} 个成功 IP 保存到 speed_ip.txt (失败 {failed_count} 个)")
+        print(f"\n完成！共 {len(results)} 个成功 IP，按速度排序后取前 {len(top_50)} 个保存到 speed_ip.txt (失败 {failed_count} 个)")
     except Exception as e:
         print(f"脚本异常: {e}")
         import traceback
