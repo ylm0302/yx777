@@ -2,7 +2,7 @@ name: IP Speed Test (CF Bandwidth Optimized)
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # 每 6 小时
+    - cron: '35 * * * *'  # 每小时的第35分钟执行一次
   workflow_dispatch:
 
 jobs:
