@@ -61,28 +61,45 @@ def get_chinese_country(ip, max_retries=1):
     """查询 IP 国家（新 API：IPinfo 主 + ipgeolocation 备用，只当主无信息时用备用）"""
     headers = {'User-Agent': USER_AGENT}
     for attempt in range(max_retries):
-        # 主 API: IPinfo.io (免费 50k/月，高准，无 key)
-        url = f'https://ipinfo.io/{ip}/country'
-        print(f"  查询 {ip} (尝试 {attempt+1}, 主 API IPinfo)...")
-        response = requests.get(url, headers=headers, timeout=10)
-        print(f"  Status: {response.status_code}, Text len: {len(response.text)}")
-        print(f"  响应预览: {response.text[:50]}...")  # 调试
-        
-        if response.status_code == 200:
-            en_country = response.text.strip()
-            if en_country and en_country != 'Unknown':  # 有有效信息（非空、非Unknown）
-                cn_country = EN_TO_CN.get(en_country, en_country)
-                print(f"  国家: {en_country} -> {cn_country}")
-                return cn_country
-            else:
-                print("  IPinfo 无有效归属地信息，尝试备用 API...")
-                # 只有主无信息时，才调用备用: ipgeolocation.io
-                backup_url = f'https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip={ip}&fields=country_name'  # demo key 免费
+        try:
+            # 主 API: IPinfo.io (免费 50k/月，高准，无 key)
+            url = f'https://ipinfo.io/{ip}/country'
+            print(f"  查询 {ip} (尝试 {attempt+1}, 主 API IPinfo)...")
+            response = requests.get(url, headers=headers, timeout=10)
+            print(f"  Status: {response.status_code}, Text len: {len(response.text)}")
+            print(f"  响应预览: {response.text[:50]}...")  # 调试
+            
+            if response.status_code == 200:
+                en_country = response.text.strip()
+                if en_country and en_country != 'Unknown':  # 有有效信息（非空、非Unknown）
+                    cn_country = EN_TO_CN.get(en_country, en_country)
+                    print(f"  国家: {en_country} -> {cn_country}")
+                    return cn_country
+                else:
+                    print("  IPinfo 无有效归属地信息，尝试备用 API...")
+                    # 只有主无信息时，才调用备用: ipgeolocation.io
+                    backup_url = f'https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip={ip}&fields=country_name'  # demo key 免费
+                    backup_resp = requests.get(backup_url, headers=headers, timeout=10)
+                    if backup_resp.status_code == 200:
+                        data = backup_resp.json()
+                        en_country_backup = data.get('country_name', 'Unknown')
+                        if en_country_backup != 'Unknown':  # 备用也检查有效
+                            cn_country = EN_TO_CN.get(en_country_backup, en_country_backup)
+                            print(f"  备用成功: {en_country_backup} -> {cn_country}")
+                            return cn_country
+                        else:
+                            print("  备用也无有效信息")
+                    else:
+                        print(f"  备用失败: {backup_resp.status_code}")
+            elif response.status_code in [403, 429]:
+                print(f"  主 API {response.status_code} 限速，无信息，尝试备用...")
+                # 限速也视为无信息，调用备用
+                backup_url = f'https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip={ip}&fields=country_name'
                 backup_resp = requests.get(backup_url, headers=headers, timeout=10)
                 if backup_resp.status_code == 200:
                     data = backup_resp.json()
                     en_country_backup = data.get('country_name', 'Unknown')
-                    if en_country_backup != 'Unknown':  # 备用也检查有效
+                    if en_country_backup != 'Unknown':
                         cn_country = EN_TO_CN.get(en_country_backup, en_country_backup)
                         print(f"  备用成功: {en_country_backup} -> {cn_country}")
                         return cn_country
@@ -90,43 +107,25 @@ def get_chinese_country(ip, max_retries=1):
                         print("  备用也无有效信息")
                 else:
                     print(f"  备用失败: {backup_resp.status_code}")
-        elif response.status_code in [403, 429]:
-            print(f"  主 API {response.status_code} 限速，无信息，尝试备用...")
-            # 限速也视为无信息，调用备用
-            backup_url = f'https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip={ip}&fields=country_name'
-            backup_resp = requests.get(backup_url, headers=headers, timeout=10)
-            if backup_resp.status_code == 200:
-                data = backup_resp.json()
-                en_country_backup = data.get('country_name', 'Unknown')
-                if en_country_backup != 'Unknown':
-                    cn_country = EN_TO_CN.get(en_country_backup, en_country_backup)
-                    print(f"  备用成功: {en_country_backup} -> {cn_country}")
-                    return cn_country
-                else:
-                    print("  备用也无有效信息")
             else:
-                print(f"  备用失败: {backup_resp.status_code}")
-        else:
-            print(f"  主 API 其他错误 {response.status_code}，无信息，尝试备用...")
-            # 其他错误也调用备用（逻辑同上）
-            # ... (复制备用逻辑)
-            backup_url = f'https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip={ip}&fields=country_name'
-            backup_resp = requests.get(backup_url, headers=headers, timeout=10)
-            if backup_resp.status_code == 200:
-                data = backup_resp.json()
-                en_country_backup = data.get('country_name', 'Unknown')
-                if en_country_backup != 'Unknown':
-                    cn_country = EN_TO_CN.get(en_country_backup, en_country_backup)
-                    print(f"  备用成功: {en_country_backup} -> {cn_country}")
-                    return cn_country
+                print(f"  主 API 其他错误 {response.status_code}，无信息，尝试备用...")
+                # 其他错误也调用备用
+                backup_url = f'https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip={ip}&fields=country_name'
+                backup_resp = requests.get(backup_url, headers=headers, timeout=10)
+                if backup_resp.status_code == 200:
+                    data = backup_resp.json()
+                    en_country_backup = data.get('country_name', 'Unknown')
+                    if en_country_backup != 'Unknown':
+                        cn_country = EN_TO_CN.get(en_country_backup, en_country_backup)
+                        print(f"  备用成功: {en_country_backup} -> {cn_country}")
+                        return cn_country
+                    else:
+                        print("  备用也无有效信息")
                 else:
-                    print("  备用也无有效信息")
-            else:
-                print(f"  备用失败: {backup_resp.status_code}")
-        
+                    print(f"  备用失败: {backup_resp.status_code}")
         except Exception as e:
             print(f"  异常 (尝试 {attempt+1}): {e}")
-            # 异常也视为无信息，尝试备用（但 max_retries=1，无下轮）
+            # 异常也视为无信息，但 max_retries=1，无下轮备用
         
         if attempt < max_retries - 1:
             time.sleep(1)  # 短延时
