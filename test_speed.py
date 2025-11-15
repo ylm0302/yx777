@@ -13,59 +13,17 @@ FILE_SIZE = 10485760  # 字节，用于验证
 # 默认端口
 DEFAULT_PORT = 8443
 
-# 国家映射：支持 code (US) 和 full name (United States)
-EN_TO_CN = {
-    # Codes
-    'US': '美国',
-    'CA': '加拿大',
-    'CN': '中国',
-    'GB': '英国',
-    'DE': '德国',
-    'FR': '法国',
-    'JP': '日本',
-    'AU': '澳大利亚',
-    'IN': '印度',
-    'BR': '巴西',
-    'RU': '俄罗斯',
-    'KR': '韩国',
-    'NL': '荷兰',
-    'SG': '新加坡',
-    'HK': '香港',
-    'TW': '台湾',
-    # Full names (fallback)
-    'United States': '美国',
-    'Canada': '加拿大',
-    'China': '中国',
-    'United Kingdom': '英国',
-    'Germany': '德国',
-    'France': '法国',
-    'Japan': '日本',
-    'Australia': '澳大利亚',
-    'India': '印度',
-    'Brazil': '巴西',
-    'Russia': '俄罗斯',
-    'South Korea': '韩国',
-    'Netherlands': '荷兰',
-    'Singapore': '新加坡',
-    'Hong Kong': '香港',
-    'Taiwan': '台湾',
-    'Reserved': '预留',
-    'Global': '全球',
-    'Unknown': '未知'
-}
-
-def get_chinese_country(ip):
-    """查询 IP 国家，并返回中文名（主: ip-api.com；"未知"/失败时备用1: ipinfo.io → 备用2: ipgeolocation.io）"""
+def get_chinese_city(ip):
+    """查询 IP 城市，并返回城市名（主: ip-api.com；"未知"/失败时备用1: ipinfo.io → 备用2: ipgeolocation.io）"""
     # 主 API: ip-api.com (HTTP 如前两天)
     try:
-        response = requests.get(f'http://ip-api.com/json/{ip}?fields=status,country,countryCode', timeout=5)
+        response = requests.get(f'http://ip-api.com/json/{ip}?fields=status,city', timeout=5)
         data = response.json()
         if data['status'] == 'success':
-            en_country = data.get('countryCode') or data.get('country', 'Unknown')  # 优先 code
-            if en_country != 'Unknown':
-                cn_country = EN_TO_CN.get(en_country, en_country)
-                print(f" 国家: {en_country} -> {cn_country}")
-                return cn_country
+            en_city = data.get('city', 'Unknown')  # 优先 city
+            if en_city != 'Unknown':
+                print(f" 城市: {en_city}")
+                return en_city
             else:
                 print("  ip-api.com 返回 Unknown，尝试备用1: ipinfo.io...")
         else:
@@ -75,13 +33,12 @@ def get_chinese_country(ip):
     
     # 备用1: ipinfo.io
     try:
-        backup1_resp = requests.get(f'https://ipinfo.io/{ip}/country', timeout=5)
+        backup1_resp = requests.get(f'https://ipinfo.io/{ip}/city', timeout=5)
         if backup1_resp.status_code == 200:
-            en_country1 = backup1_resp.text.strip()
-            if en_country1 and en_country1 != 'Unknown':
-                cn_country = EN_TO_CN.get(en_country1, en_country1)
-                print(f"  备用1 成功: {en_country1} -> {cn_country}")
-                return cn_country
+            en_city1 = backup1_resp.text.strip()
+            if en_city1 and en_city1 != 'Unknown':
+                print(f"  备用1 成功: {en_city1}")
+                return en_city1
             else:
                 print("  ipinfo.io 返回 Unknown，尝试备用2: ipgeolocation.io...")
         else:
@@ -91,14 +48,13 @@ def get_chinese_country(ip):
     
     # 备用2: ipgeolocation.io (demo key)
     try:
-        backup2_resp = requests.get(f'https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip={ip}&fields=country_code,country_name', timeout=5)
+        backup2_resp = requests.get(f'https://api.ipgeolocation.io/ipgeo?apiKey=demo&ip={ip}&fields=city', timeout=5)
         if backup2_resp.status_code == 200:
             backup2_data = backup2_resp.json()
-            en_country2 = backup2_data.get('country_code') or backup2_data.get('country_name', 'Unknown')
-            if en_country2 != 'Unknown':
-                cn_country = EN_TO_CN.get(en_country2, en_country2)
-                print(f"  备用2 成功: {en_country2} -> {cn_country}")
-                return cn_country
+            en_city2 = backup2_data.get('city', 'Unknown')
+            if en_city2 != 'Unknown':
+                print(f"  备用2 成功: {en_city2}")
+                return en_city2
             print("  备用2 返回 Unknown")
         else:
             print(f"  备用2 失败: {backup2_resp.status_code}")
@@ -177,12 +133,12 @@ def main():
             ip = match.group(1)
             port = match.group(2) or str(DEFAULT_PORT)  # 优先自带端口，没有默认8443
             ip_port = f"{ip}:{port}"
-            cn_country = get_chinese_country(ip)
-            print(f"\n测试 {ip_port} - {cn_country}")
+            cn_city = get_chinese_city(ip)
+            print(f"\n测试 {ip_port} - {cn_city}")
             speed = test_speed(ip)
             time.sleep(1)  # 如前两天
             if speed > 0:
-                result = f"{ip_port}#{cn_country} {speed}MB/s"  # 格式: IP:端口#国家 速率
+                result = f"{ip_port}#{cn_city} {speed}MB/s"  # 格式: IP:端口#城市 速率
                 results.append(result)
                 print(f" -> 成功: {result}")
             else:
